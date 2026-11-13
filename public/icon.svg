@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Crossfit Ebber">
+  <rect width="512" height="512" rx="112" fill="#080A0C" />
+  <circle cx="256" cy="256" r="224" fill="#1C1F23" stroke="#2D333B" stroke-width="6" />
+  <line x1="56" y1="196" x2="456" y2="196" stroke="#FFFFFF" stroke-width="4" />
+  <line x1="56" y1="316" x2="456" y2="316" stroke="#FFFFFF" stroke-width="4" />
+  <text
+    x="256"
+    y="272"
+    text-anchor="middle"
+    font-family="Arial Black, Impact, sans-serif"
+    font-weight="900"
+    font-size="82"
+    letter-spacing="2"
+    fill="#FFFFFF"
+  >
+    CF<tspan fill="#149CEA">EBBER</tspan>
+  </text>
+  <text
+    x="256"
+    y="304"
+    text-anchor="middle"
+    font-family="Arial, sans-serif"
+    font-weight="700"
+    font-size="18"
+    letter-spacing="4"
+    fill="#29A8F5"
+  >
+    ATIVIDADES FÍSICAS
+  </text>
+</svg>

@@ -1,0 +1,6 @@
+{
+  "name": "Crossfit Ebber",
+  "description": "Box de CrossFit no Petrolândia, Contagem/MG. Treinos para iniciantes e avançados com foco em saúde, emagrecimento, confiança e bem-estar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
