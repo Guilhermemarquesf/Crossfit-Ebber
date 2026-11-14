@@ -7,6 +7,7 @@ import { ScrollReveal } from './ScrollReveal';
 const FOOTER_LINKS = [
   { label: 'Início', href: '#inicio' },
   { label: 'O Box', href: '#o-box' },
+  { label: 'WOD & PRs', href: '#wod-ranking' },
   { label: 'Metodologia', href: '#metodologia' },
   { label: 'Depoimentos', href: '#depoimentos' },
   { label: 'Dúvidas & Horários', href: '#duvidas' },

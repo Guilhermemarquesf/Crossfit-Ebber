@@ -1,0 +1,211 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regra global padrão de negação (Zero-Trust)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isCoach() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach') ||
+        (request.auth.token.email == 'guilhermecontas78@gmail.com' &&
+          request.auth.token.email_verified == true)
+      );
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'name', 'photoURL', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'name', 'photoURL', 'role', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && data.photoURL is string && data.photoURL.size() <= 500
+        && data.role in ['aluno', 'coach']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWod(data) {
+      return data.keys().hasAll([
+        'date', 'title', 'modality', 'warmup', 'workout', 'coachNotes',
+        'authorUid', 'authorName', 'createdAt', 'updatedAt'
+      ])
+        && data.keys().hasOnly([
+          'date', 'title', 'modality', 'warmup', 'workout', 'coachNotes',
+          'authorUid', 'authorName', 'createdAt', 'updatedAt'
+        ])
+        && data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 100
+        && data.modality in ['AMRAP', 'For Time', 'EMOM', 'Força + Metcon']
+        && data.warmup is string && data.warmup.size() <= 500
+        && data.workout is string && data.workout.size() >= 5 && data.workout.size() <= 2000
+        && data.coachNotes is string && data.coachNotes.size() <= 500
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidScore(data) {
+      return data.keys().hasAll([
+        'wodDate', 'wodTitle', 'userId', 'userName', 'userPhotoURL',
+        'category', 'scoreType', 'resultDisplay', 'numericValue', 'notes',
+        'createdAt', 'updatedAt'
+      ])
+        && data.keys().hasOnly([
+          'wodDate', 'wodTitle', 'userId', 'userName', 'userPhotoURL',
+          'category', 'scoreType', 'resultDisplay', 'numericValue', 'notes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.wodDate is string && data.wodDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.wodTitle is string && data.wodTitle.size() >= 1 && data.wodTitle.size() <= 100
+        && data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 100
+        && data.userPhotoURL is string && data.userPhotoURL.size() <= 500
+        && data.category in ['RX', 'Scaled']
+        && data.scoreType in ['Tempo', 'Reps']
+        && data.resultDisplay is string && data.resultDisplay.size() >= 1 && data.resultDisplay.size() <= 40
+        && data.numericValue is number && data.numericValue >= 0 && data.numericValue <= 100000
+        && data.notes is string && data.notes.size() <= 200
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPr(data) {
+      return data.keys().hasAll([
+        'userId', 'movement', 'weightKg', 'reps', 'recordedDate',
+        'notes', 'createdAt', 'updatedAt'
+      ])
+        && data.keys().hasOnly([
+          'userId', 'movement', 'weightKg', 'reps', 'recordedDate',
+          'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128
+        && data.movement is string && data.movement.size() >= 2 && data.movement.size() <= 60
+        && data.weightKg is number && data.weightKg > 0 && data.weightKg <= 500
+        && data.reps is int && data.reps >= 1 && data.reps <= 20
+        && data.recordedDate is string && data.recordedDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.notes is string && data.notes.size() <= 200
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Coleção de perfis de usuários
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isCoach());
+      allow list: if isCoach();
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == userId
+        && incoming().role == 'aluno'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'photoURL', 'updatedAt'])) ||
+          (isCoach()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'updatedAt']))
+        );
+      allow delete: if false;
+    }
+
+    // Coleção de WODs do Dia (leitura pública, escrita exclusiva para coach)
+    match /wods/{wodId} {
+      allow get: if isValidId(wodId);
+      allow list: if true;
+      allow create: if isValidId(wodId)
+        && isCoach()
+        && isValidWod(incoming())
+        && incoming().authorUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(wodId)
+        && isCoach()
+        && isValidWod(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'date', 'title', 'modality', 'warmup', 'workout', 'coachNotes',
+          'authorUid', 'authorName', 'updatedAt'
+        ]);
+      allow delete: if isValidId(wodId) && isCoach();
+    }
+
+    // Coleção de resultados (Ranking do WOD do Dia)
+    match /scores/{scoreId} {
+      allow get: if isValidId(scoreId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isValidId(scoreId)
+        && isSignedIn()
+        && isValidScore(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(scoreId)
+        && isSignedIn()
+        && isValidScore(incoming())
+        && existing().userId == request.auth.uid
+        && incoming().userId == existing().userId
+        && incoming().wodDate == existing().wodDate
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'wodTitle', 'userName', 'userPhotoURL', 'category',
+          'scoreType', 'resultDisplay', 'numericValue', 'notes', 'updatedAt'
+        ]);
+      allow delete: if isValidId(scoreId)
+        && (isOwner(existing().userId) || isCoach());
+    }
+
+    // Coleção privada de PRs (Recordes Pessoais) por aluno
+    match /prs/{prId} {
+      allow get: if isValidId(prId) && isOwner(existing().userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isValidId(prId)
+        && isSignedIn()
+        && isValidPr(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(prId)
+        && isSignedIn()
+        && isValidPr(incoming())
+        && existing().userId == request.auth.uid
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'movement', 'weightKg', 'reps', 'recordedDate', 'notes', 'updatedAt'
+        ]);
+      allow delete: if isValidId(prId) && isOwner(existing().userId);
+    }
+  }
+}

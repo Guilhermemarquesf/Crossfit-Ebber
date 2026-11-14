@@ -1,0 +1,250 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Perfil do aluno ou coach autenticado com Google na Crossfit Ebber.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "UID do usuário no Firebase Authentication.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Nome de exibição do aluno ou coach.",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "URL da foto de perfil do Google.",
+          "maxLength": 500
+        },
+        "role": {
+          "type": "string",
+          "enum": ["aluno", "coach"],
+          "description": "Papel do usuário no box."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "name", "photoURL", "role", "createdAt", "updatedAt"]
+    },
+    "Wod": {
+      "title": "Wod",
+      "description": "Treino do Dia (WOD) publicado por um coach da Crossfit Ebber.",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "minLength": 10,
+          "maxLength": 10
+        },
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "modality": {
+          "type": "string",
+          "enum": ["AMRAP", "For Time", "EMOM", "Força + Metcon"]
+        },
+        "warmup": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "workout": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 2000
+        },
+        "coachNotes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "authorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "date",
+        "title",
+        "modality",
+        "warmup",
+        "workout",
+        "coachNotes",
+        "authorUid",
+        "authorName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WodScore": {
+      "title": "WodScore",
+      "description": "Resultado registrado por um aluno no Ranking do WOD do Dia.",
+      "type": "object",
+      "properties": {
+        "wodDate": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "minLength": 10,
+          "maxLength": 10
+        },
+        "wodTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "userName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "userPhotoURL": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "category": {
+          "type": "string",
+          "enum": ["RX", "Scaled"]
+        },
+        "scoreType": {
+          "type": "string",
+          "enum": ["Tempo", "Reps"]
+        },
+        "resultDisplay": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "numericValue": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "wodDate",
+        "wodTitle",
+        "userId",
+        "userName",
+        "userPhotoURL",
+        "category",
+        "scoreType",
+        "resultDisplay",
+        "numericValue",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PersonalRecord": {
+      "title": "PersonalRecord",
+      "description": "Recorde Pessoal (PR) de carga máxima registrado por um aluno.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "movement": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "weightKg": {
+          "type": "number"
+        },
+        "reps": {
+          "type": "number"
+        },
+        "recordedDate": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "minLength": 10,
+          "maxLength": 10
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "movement",
+        "weightKg",
+        "reps",
+        "recordedDate",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Perfis de alunos e coaches da Crossfit Ebber."
+    },
+    "/wods/{wodId}": {
+      "schema": { "$ref": "#/entities/Wod" },
+      "description": "Treinos do Dia (WOD) indexados por data YYYY-MM-DD."
+    },
+    "/scores/{scoreId}": {
+      "schema": { "$ref": "#/entities/WodScore" },
+      "description": "Resultados dos alunos no ranking do WOD do Dia."
+    },
+    "/prs/{prId}": {
+      "schema": { "$ref": "#/entities/PersonalRecord" },
+      "description": "Recordes Pessoais (PRs) privados de carga máxima por aluno."
+    }
+  }
+}
