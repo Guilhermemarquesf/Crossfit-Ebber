@@ -16,7 +16,6 @@ import {
 import {
   Award,
   Calendar,
-  CheckCircle2,
   ClipboardEdit,
   Dumbbell,
   Flame,
@@ -26,15 +25,13 @@ import {
   Shield,
   Trash2,
   Trophy,
-  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { OperationType, db, handleFirestoreError } from '../services/firebase';
 import { ScrollReveal } from './ScrollReveal';
+import { WodLeaderboard } from './WodLeaderboard';
 
 type WodModality = 'AMRAP' | 'For Time' | 'EMOM' | 'Força + Metcon';
-type ScoreCategory = 'RX' | 'Scaled';
-type ScoreType = 'Tempo' | 'Reps';
 
 interface WodDoc {
   id: string;
@@ -46,20 +43,6 @@ interface WodDoc {
   coachNotes: string;
   authorUid: string;
   authorName: string;
-}
-
-interface ScoreDoc {
-  id: string;
-  wodDate: string;
-  wodTitle: string;
-  userId: string;
-  userName: string;
-  userPhotoURL: string;
-  category: ScoreCategory;
-  scoreType: ScoreType;
-  resultDisplay: string;
-  numericValue: number;
-  notes: string;
 }
 
 interface PrDoc {
@@ -104,55 +87,6 @@ function formatDatePtBr(dateStr: string): string {
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
-function parseTimeToSeconds(input: string): number | null {
-  const cleaned = input.trim();
-  const mmss = /^(\d{1,3}):([0-5]\d)$/.exec(cleaned);
-  if (mmss) {
-    return Number(mmss[1]) * 60 + Number(mmss[2]);
-  }
-  const plainNumber = Number(cleaned.replace(',', '.'));
-  if (!Number.isNaN(plainNumber) && plainNumber > 0) {
-    return Math.round(plainNumber);
-  }
-  return null;
-}
-
-function AthleteAvatar({
-  photoURL,
-  name,
-  sizeClass = 'h-9 w-9',
-}: {
-  photoURL?: string;
-  name: string;
-  sizeClass?: string;
-}) {
-  const [imgError, setImgError] = useState(false);
-  const initial = (name.trim().charAt(0) || 'A').toUpperCase();
-
-  if (!photoURL || imgError) {
-    return (
-      <div
-        aria-hidden="true"
-        className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border border-[#149CEA]/40 bg-[#149CEA]/15 text-xs font-bold text-[#29A8F5]`}
-      >
-        {initial}
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={photoURL}
-      alt={`Foto de ${name}`}
-      loading="lazy"
-      decoding="async"
-      referrerPolicy="no-referrer"
-      onError={() => setImgError(true)}
-      className={`${sizeClass} shrink-0 rounded-full border border-white/15 object-cover`}
-    />
-  );
-}
-
 export function WodCommunitySection() {
   const { user, userProfile, authReady, authBusy, signInWithGoogle } =
     useAuth();
@@ -173,20 +107,6 @@ export function WodCommunitySection() {
   const [wodWarmup, setWodWarmup] = useState('');
   const [wodWorkout, setWodWorkout] = useState('');
   const [wodNotes, setWodNotes] = useState('');
-
-  // Estado do Ranking (Scores)
-  const [scores, setScores] = useState<ScoreDoc[]>([]);
-  const [scoresLoading, setScoresLoading] = useState(false);
-  const [scoresError, setScoresError] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<'Todos' | ScoreCategory>(
-    'Todos'
-  );
-  const [scoreCategory, setScoreCategory] = useState<ScoreCategory>('RX');
-  const [scoreType, setScoreType] = useState<ScoreType>('Tempo');
-  const [scoreResult, setScoreResult] = useState('');
-  const [scoreNotes, setScoreNotes] = useState('');
-  const [scoreSaving, setScoreSaving] = useState(false);
-  const [scoreFeedback, setScoreFeedback] = useState<string | null>(null);
 
   // Estado dos PRs (Personal Records)
   const [prs, setPrs] = useState<PrDoc[]>([]);
@@ -294,72 +214,7 @@ export function WodCommunitySection() {
     };
   }, []);
 
-  // 2. Listener autenticado para Ranking (Scores) da data selecionada
-  useEffect(() => {
-    if (!authReady || !user) {
-      setScores([]);
-      setScoresLoading(false);
-      setScoresError(null);
-      return;
-    }
-
-    setScoresLoading(true);
-    setScoresError(null);
-
-    const scoresQuery = query(
-      collection(db, 'scores'),
-      where('wodDate', '==', selectedDate)
-    );
-
-    const unsubscribe = onSnapshot(
-      scoresQuery,
-      (snapshot) => {
-        const loaded: ScoreDoc[] = snapshot.docs.map((docSnap) => {
-          const d = docSnap.data();
-          return {
-            id: docSnap.id,
-            wodDate: String(d.wodDate || selectedDate),
-            wodTitle: String(d.wodTitle || ''),
-            userId: String(d.userId || ''),
-            userName: String(d.userName || 'Atleta'),
-            userPhotoURL: String(d.userPhotoURL || ''),
-            category: d.category === 'Scaled' ? 'Scaled' : 'RX',
-            scoreType: d.scoreType === 'Reps' ? 'Reps' : 'Tempo',
-            resultDisplay: String(d.resultDisplay || ''),
-            numericValue: Number(d.numericValue || 0),
-            notes: String(d.notes || ''),
-          };
-        });
-        setScores(loaded);
-        setScoresLoading(false);
-
-        const own = loaded.find((item) => item.userId === user.uid);
-        if (own) {
-          setScoreCategory(own.category);
-          setScoreType(own.scoreType);
-          setScoreResult(own.resultDisplay);
-          setScoreNotes(own.notes);
-        } else {
-          setScoreResult('');
-          setScoreNotes('');
-        }
-      },
-      (err) => {
-        try {
-          handleFirestoreError(err, OperationType.LIST, 'scores');
-        } catch {
-          setScoresError(
-            'Não foi possível carregar o ranking agora. Confira as regras do Firestore.'
-          );
-          setScoresLoading(false);
-        }
-      }
-    );
-
-    return () => unsubscribe();
-  }, [authReady, user, selectedDate]);
-
-  // 3. Listener autenticado para PRs pessoais do aluno logado
+  // 2. Listener autenticado para PRs pessoais do aluno logado
   useEffect(() => {
     if (!authReady || !user) {
       setPrs([]);
@@ -410,31 +265,6 @@ export function WodCommunitySection() {
 
     return () => unsubscribe();
   }, [authReady, user]);
-
-  // Ordenação do Ranking: RX primeiro, depois Tempo crescente ou Reps decrescente
-  const sortedScores = useMemo(() => {
-    const filtered =
-      categoryFilter === 'Todos'
-        ? scores
-        : scores.filter((s) => s.category === categoryFilter);
-
-    return [...filtered].sort((a, b) => {
-      if (a.category !== b.category) {
-        return a.category === 'RX' ? -1 : 1;
-      }
-      if (a.scoreType === b.scoreType) {
-        return a.scoreType === 'Tempo'
-          ? a.numericValue - b.numericValue
-          : b.numericValue - a.numericValue;
-      }
-      return a.userName.localeCompare(b.userName);
-    });
-  }, [scores, categoryFilter]);
-
-  const myCurrentScore = useMemo(
-    () => (user ? scores.find((s) => s.userId === user.uid) ?? null : null),
-    [scores, user]
-  );
 
   // Melhor carga registrada por movimento nos PRs
   const bestPrByMovement = useMemo(() => {
@@ -513,123 +343,6 @@ export function WodCommunitySection() {
       }
     } finally {
       setCoachSaving(false);
-    }
-  };
-
-  // Salvar / Atualizar Score no Ranking
-  const handleSaveScore = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    const rawResult = scoreResult.trim();
-    if (!rawResult) {
-      setScoreFeedback('Digite seu tempo (ex: 12:45) ou total de reps.');
-      return;
-    }
-
-    let numericValue = 0;
-    let formattedDisplay = rawResult;
-
-    if (scoreType === 'Tempo') {
-      const parsed = parseTimeToSeconds(rawResult);
-      if (parsed === null || parsed <= 0 || parsed > 100000) {
-        setScoreFeedback(
-          'Formato de tempo inválido. Use MM:SS (ex: 14:32) ou segundos.'
-        );
-        return;
-      }
-      numericValue = parsed;
-      const mins = Math.floor(parsed / 60);
-      const secs = String(parsed % 60).padStart(2, '0');
-      formattedDisplay = `${mins}:${secs}`;
-    } else {
-      const repsParsed = Number(rawResult.replace(/[^\d.]/g, ''));
-      if (
-        Number.isNaN(repsParsed) ||
-        repsParsed <= 0 ||
-        repsParsed > 100000
-      ) {
-        setScoreFeedback('Informe uma quantidade válida de repetições.');
-        return;
-      }
-      numericValue = repsParsed;
-      formattedDisplay = `${repsParsed} reps`;
-    }
-
-    setScoreSaving(true);
-    setScoreFeedback(null);
-    const scoreId = `${selectedDate}_${user.uid}`;
-    const scoreRef = doc(db, 'scores', scoreId);
-    const scorePath = `scores/${scoreId}`;
-
-    const athleteName = (
-      userProfile?.name ||
-      user.displayName ||
-      'Atleta Ebber'
-    ).slice(0, 100);
-    const athletePhoto = (userProfile?.photoURL || user.photoURL || '').slice(
-      0,
-      500
-    );
-    const wodTitleResolved = (
-      currentWod?.title || `WOD ${formatDatePtBr(selectedDate)}`
-    ).slice(0, 100);
-
-    try {
-      if (myCurrentScore) {
-        await updateDoc(scoreRef, {
-          wodTitle: wodTitleResolved,
-          userName: athleteName,
-          userPhotoURL: athletePhoto,
-          category: scoreCategory,
-          scoreType,
-          resultDisplay: formattedDisplay.slice(0, 40),
-          numericValue,
-          notes: scoreNotes.trim().slice(0, 200),
-          updatedAt: serverTimestamp(),
-        });
-      } else {
-        await setDoc(scoreRef, {
-          wodDate: selectedDate,
-          wodTitle: wodTitleResolved,
-          userId: user.uid,
-          userName: athleteName,
-          userPhotoURL: athletePhoto,
-          category: scoreCategory,
-          scoreType,
-          resultDisplay: formattedDisplay.slice(0, 40),
-          numericValue,
-          notes: scoreNotes.trim().slice(0, 200),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-      setScoreFeedback('Resultado registrado no placar!');
-    } catch (err) {
-      try {
-        handleFirestoreError(err, OperationType.WRITE, scorePath);
-      } catch {
-        setScoreFeedback(
-          'Não foi possível salvar seu resultado. Verifique sua conexão e tente novamente.'
-        );
-      }
-    } finally {
-      setScoreSaving(false);
-    }
-  };
-
-  const handleDeleteScore = async (scoreId: string) => {
-    if (!user) return;
-    const scorePath = `scores/${scoreId}`;
-    try {
-      await deleteDoc(doc(db, 'scores', scoreId));
-      setScoreFeedback('Resultado removido do placar.');
-    } catch (err) {
-      try {
-        handleFirestoreError(err, OperationType.DELETE, scorePath);
-      } catch {
-        setScoreFeedback('Não foi possível remover o resultado.');
-      }
     }
   };
 
@@ -771,8 +484,8 @@ export function WodCommunitySection() {
                 id="wod-section-subtitle"
                 className="mt-3 max-w-2xl text-sm leading-relaxed text-[#B4BCC6] sm:text-base"
               >
-                Acompanhe o treino prescrito do box, registre seu resultado no
-                placar diário e salve suas cargas máximas de levantamento.
+                Acompanhe o treino prescrito do box, registre seu resultado com
+                sessão e categoria no placar diário e salve suas cargas máximas.
               </p>
             </div>
 
@@ -960,8 +673,8 @@ export function WodCommunitySection() {
                     </p>
                     <p className="mt-1.5 text-xs leading-relaxed text-[#9AA3AF]">
                       {isCoach
-                        ? 'Você está autenticado como Coach. Clique abaixo para publicar o treino desta data.'
-                        : 'Selecione outra data acima ou aguarde o coach publicar o treino de hoje.'}
+                        ? 'Você está autenticado como Coach. Clique abaixo para publicar o treino completo desta data.'
+                        : 'Selecione outra data acima ou registre seu resultado no placar ao lado informando o nome do treino.'}
                     </p>
                     {recentWods.length > 0 && (
                       <button
@@ -1018,7 +731,8 @@ export function WodCommunitySection() {
                           />
                         </div>
                         <p id="coach-form-desc" className="text-[11px] text-[#9AA3AF]">
-                          O treino publicado aqui aparece em tempo real para todos os alunos do box.
+                          O treino publicado aqui aparece em tempo real para
+                          todos os alunos do box.
                         </p>
 
                         <div>
@@ -1133,7 +847,9 @@ export function WodCommunitySection() {
                           aria-describedby="coach-form-heading coach-form-desc"
                           className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0C7EC8] px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-[#149CEA] disabled:opacity-60"
                         >
-                          {coachSaving ? 'Salvando WOD...' : 'Salvar WOD no Quadro'}
+                          {coachSaving
+                            ? 'Salvando WOD...'
+                            : 'Salvar WOD no Quadro'}
                         </button>
                       </form>
                     )}
@@ -1142,328 +858,22 @@ export function WodCommunitySection() {
               </div>
             </div>
 
-            {/* Coluna Direita: Ranking do WOD do Dia */}
+            {/* Coluna Direita: Componente WodLeaderboard */}
             <div className="lg:col-span-7">
-              <div className="rounded-xl border border-white/10 bg-[#0F1318] p-6">
-                <div className="flex flex-col gap-4 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#149CEA]/40 bg-[#149CEA]/10 text-[#29A8F5]">
-                      <Trophy className="h-5 w-5" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <h3
-                        id="ranking-heading"
-                        className="font-display text-xl font-bold uppercase tracking-wide text-white"
-                      >
-                        Placar / Leaderboard
-                      </h3>
-                      <p className="text-xs text-[#9AA3AF]">
-                        Resultados em tempo real · {formatDatePtBr(selectedDate)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Filtro RX / Scaled */}
-                  <div
-                    role="group"
-                    aria-label="Filtrar placar por categoria"
-                    className="inline-flex rounded-md border border-white/15 bg-[#080A0C] p-0.5"
-                  >
-                    {(['Todos', 'RX', 'Scaled'] as const).map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setCategoryFilter(cat)}
-                        className={`rounded px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
-                          categoryFilter === cat
-                            ? 'bg-[#0C7EC8] text-white'
-                            : 'text-[#B4BCC6] hover:text-white'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {!user ? (
-                  <div className="mt-6 rounded-xl border border-white/10 bg-[#080A0C] p-6 text-center sm:p-8">
-                    <UserCheck
-                      className="mx-auto h-8 w-8 text-[#29A8F5]"
-                      aria-hidden="true"
-                    />
-                    <h4
-                      id="login-prompt-ranking-title"
-                      className="mt-3 font-display text-lg font-bold uppercase tracking-wide text-white"
-                    >
-                      Entre com Google para ver e registrar seu resultado
-                    </h4>
-                    <p
-                      id="login-prompt-ranking-desc"
-                      className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-[#B4BCC6] sm:text-sm"
-                    >
-                      O placar diário e o registro de tempo/reps na categoria RX
-                      ou Scaled são exclusivos para alunos autenticados da
-                      Crossfit Ebber.
-                    </p>
-                    <button
-                      type="button"
-                      disabled={authBusy}
-                      onClick={() => void signInWithGoogle()}
-                      aria-labelledby="login-prompt-ranking-title"
-                      aria-describedby="login-prompt-ranking-desc"
-                      className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-[#0C7EC8] px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-[#149CEA] disabled:opacity-60"
-                    >
-                      <LogIn className="h-4 w-4" aria-hidden="true" />
-                      <span>
-                        {authBusy ? 'Conectando...' : 'Entrar com Google'}
-                      </span>
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    {/* Formulário de Submissão de Resultado */}
-                    <form
-                      onSubmit={handleSaveScore}
-                      aria-labelledby="score-form-title"
-                      aria-describedby="score-form-desc"
-                      className="mt-5 rounded-lg border border-white/10 bg-[#080A0C] p-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h4
-                          id="score-form-title"
-                          className="text-xs font-bold uppercase tracking-wider text-white"
-                        >
-                          {myCurrentScore
-                            ? 'Atualizar Meu Resultado no Placar'
-                            : 'Registrar Meu Resultado'}
-                        </h4>
-                        <span className="text-[11px] text-[#9AA3AF]">
-                          Atleta: {userProfile?.name || user.displayName}
-                        </span>
-                      </div>
-                      <p id="score-form-desc" className="mt-1 text-[11px] text-[#9AA3AF]">
-                        Informe seu tempo final (ex: 12:35) ou número de repetições concluídas.
-                      </p>
-
-                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-12">
-                        <div className="sm:col-span-3">
-                          <label
-                            htmlFor="score-category"
-                            className="block text-[11px] font-medium text-[#B4BCC6]"
-                          >
-                            Categoria
-                          </label>
-                          <select
-                            id="score-category"
-                            value={scoreCategory}
-                            onChange={(e) =>
-                              setScoreCategory(e.target.value as ScoreCategory)
-                            }
-                            className="mt-1 w-full rounded-md border border-white/15 bg-[#0F1318] px-2.5 py-2 text-sm text-white focus:border-[#149CEA] focus:outline-none"
-                          >
-                            <option value="RX">RX</option>
-                            <option value="Scaled">Scaled</option>
-                          </select>
-                        </div>
-
-                        <div className="sm:col-span-3">
-                          <label
-                            htmlFor="score-type"
-                            className="block text-[11px] font-medium text-[#B4BCC6]"
-                          >
-                            Tipo de Placar
-                          </label>
-                          <select
-                            id="score-type"
-                            value={scoreType}
-                            onChange={(e) =>
-                              setScoreType(e.target.value as ScoreType)
-                            }
-                            className="mt-1 w-full rounded-md border border-white/15 bg-[#0F1318] px-2.5 py-2 text-sm text-white focus:border-[#149CEA] focus:outline-none"
-                          >
-                            <option value="Tempo">Tempo (MM:SS)</option>
-                            <option value="Reps">Reps / Rounds</option>
-                          </select>
-                        </div>
-
-                        <div className="sm:col-span-3">
-                          <label
-                            htmlFor="score-result"
-                            className="block text-[11px] font-medium text-[#B4BCC6]"
-                          >
-                            {scoreType === 'Tempo' ? 'Tempo (MM:SS)' : 'Total de Reps'}
-                          </label>
-                          <input
-                            id="score-result"
-                            type="text"
-                            required
-                            maxLength={40}
-                            placeholder={scoreType === 'Tempo' ? '14:20' : '185'}
-                            value={scoreResult}
-                            onChange={(e) => setScoreResult(e.target.value)}
-                            className="mt-1 w-full rounded-md border border-white/15 bg-[#0F1318] px-2.5 py-2 text-sm text-white tabular-nums placeholder-[#6B7280] focus:border-[#149CEA] focus:outline-none"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-3 flex items-end">
-                          <button
-                            type="submit"
-                            disabled={scoreSaving}
-                            aria-describedby="score-form-title score-form-desc"
-                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-[#0C7EC8] px-3 py-2 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-[#149CEA] disabled:opacity-60"
-                          >
-                            <CheckCircle2
-                              className="h-4 w-4"
-                              aria-hidden="true"
-                            />
-                            <span>
-                              {scoreSaving
-                                ? 'Salvando...'
-                                : myCurrentScore
-                                  ? 'Atualizar'
-                                  : 'Publicar'}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mt-3">
-                        <label
-                          htmlFor="score-notes"
-                          className="block text-[11px] font-medium text-[#B4BCC6]"
-                        >
-                          Observação / Carga utilizada (opcional)
-                        </label>
-                        <input
-                          id="score-notes"
-                          type="text"
-                          maxLength={200}
-                          placeholder="Ex: Thruster 35kg / Pull-up com elástico"
-                          value={scoreNotes}
-                          onChange={(e) => setScoreNotes(e.target.value)}
-                          className="mt-1 w-full rounded-md border border-white/15 bg-[#0F1318] px-3 py-1.5 text-xs text-white placeholder-[#6B7280] focus:border-[#149CEA] focus:outline-none"
-                        />
-                      </div>
-
-                      {scoreFeedback && (
-                        <p
-                          role="status"
-                          className="mt-2.5 text-xs font-medium text-[#29A8F5]"
-                        >
-                          {scoreFeedback}
-                        </p>
-                      )}
-                    </form>
-
-                    {scoresError && (
-                      <p
-                        role="alert"
-                        className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200"
-                      >
-                        {scoresError}
-                      </p>
-                    )}
-
-                    {/* Tabela / Lista do Ranking */}
-                    <div className="mt-5">
-                      {scoresLoading ? (
-                        <div className="space-y-2">
-                          <div className="h-14 w-full animate-pulse rounded-lg bg-white/5" />
-                          <div className="h-14 w-full animate-pulse rounded-lg bg-white/5" />
-                        </div>
-                      ) : sortedScores.length === 0 ? (
-                        <div className="rounded-lg border border-dashed border-white/15 bg-[#080A0C] p-6 text-center">
-                          <p className="text-sm font-medium text-white">
-                            Nenhum resultado lançado nesta categoria ainda.
-                          </p>
-                          <p className="mt-1 text-xs text-[#9AA3AF]">
-                            Seja o primeiro atleta a registrar o treino de{' '}
-                            {formatDatePtBr(selectedDate)}!
-                          </p>
-                        </div>
-                      ) : (
-                        <ul
-                          aria-labelledby="ranking-heading"
-                          className="divide-y divide-white/10 rounded-lg border border-white/10 bg-[#080A0C]"
-                        >
-                          {sortedScores.map((item, idx) => {
-                            const isMine = item.userId === user.uid;
-                            return (
-                              <li
-                                key={item.id}
-                                className={`flex items-center justify-between gap-3 px-4 py-3 ${
-                                  isMine ? 'bg-[#149CEA]/10' : ''
-                                }`}
-                              >
-                                <div className="flex min-w-0 items-center gap-3">
-                                  <span
-                                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded font-display text-sm font-extrabold tabular-nums ${
-                                      idx === 0
-                                        ? 'bg-[#149CEA] text-white'
-                                        : idx === 1
-                                          ? 'border border-white/25 bg-white/10 text-white'
-                                          : 'border border-white/10 bg-[#0F1318] text-[#B4BCC6]'
-                                    }`}
-                                  >
-                                    {idx + 1}º
-                                  </span>
-
-                                  <AthleteAvatar
-                                    photoURL={item.userPhotoURL}
-                                    name={item.userName}
-                                  />
-
-                                  <div className="min-w-0">
-                                    <p className="truncate text-sm font-semibold text-white">
-                                      {item.userName}{' '}
-                                      {isMine && (
-                                        <span className="text-xs font-normal text-[#29A8F5]">
-                                          (Você)
-                                        </span>
-                                      )}
-                                    </p>
-                                    {item.notes && (
-                                      <p className="truncate text-xs text-[#9AA3AF]">
-                                        {item.notes}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="flex shrink-0 items-center gap-3">
-                                  <div className="text-right">
-                                    <p className="font-display text-base font-bold text-white tabular-nums">
-                                      {item.resultDisplay}
-                                    </p>
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#29A8F5]">
-                                      {item.category}
-                                    </p>
-                                  </div>
-
-                                  {(isMine || isCoach) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleDeleteScore(item.id)}
-                                      aria-label={`Remover resultado de ${item.userName}`}
-                                      className="inline-flex h-8 w-8 items-center justify-center rounded border border-white/10 text-[#9AA3AF] transition-colors hover:border-red-400/50 hover:text-red-400"
-                                    >
-                                      <Trash2
-                                        className="h-3.5 w-3.5"
-                                        aria-hidden="true"
-                                      />
-                                    </button>
-                                  )}
-                                </div>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+              <WodLeaderboard
+                selectedDate={selectedDate}
+                currentWod={
+                  currentWod
+                    ? {
+                        id: currentWod.id,
+                        date: currentWod.date,
+                        title: currentWod.title,
+                        modality: currentWod.modality,
+                        workout: currentWod.workout,
+                      }
+                    : null
+                }
+              />
             </div>
           </div>
         )}
@@ -1700,7 +1110,6 @@ export function WodCommunitySection() {
 
                 {/* Coluna Direita: Melhores Marcas + Histórico */}
                 <div className="space-y-6 lg:col-span-7">
-                  {/* Resumo de Melhores Cargas */}
                   <div className="rounded-xl border border-white/10 bg-[#0F1318] p-6">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
                       <div>

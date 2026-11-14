@@ -118,6 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      const isBootstrapCoach =
+        firebaseUser.email?.toLowerCase() === 'guilhermecontas78@gmail.com' &&
+        firebaseUser.emailVerified;
+
       unsubscribeProfile = onSnapshot(
         userRef,
         (docSnap) => {
@@ -127,14 +131,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               uid: String(data.uid || firebaseUser.uid),
               name: String(data.name || safeName),
               photoURL: String(data.photoURL || safePhoto),
-              role: data.role === 'coach' ? 'coach' : 'aluno',
+              role:
+                data.role === 'coach' || isBootstrapCoach ? 'coach' : 'aluno',
             });
           } else {
             setUserProfile({
               uid: firebaseUser.uid,
               name: safeName,
               photoURL: safePhoto,
-              role: 'aluno',
+              role: isBootstrapCoach ? 'coach' : 'aluno',
             });
           }
           setAuthReady(true);
@@ -147,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               uid: firebaseUser.uid,
               name: safeName,
               photoURL: safePhoto,
-              role: 'aluno',
+              role: isBootstrapCoach ? 'coach' : 'aluno',
             });
             setAuthReady(true);
           }
