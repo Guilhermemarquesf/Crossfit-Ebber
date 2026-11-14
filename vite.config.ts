@@ -57,6 +57,7 @@ export default defineConfig(() => {
         workbox: {
           // Pré-cache apenas do shell e fontes/ícones essenciais para não atrasar a instalação inicial
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          navigateFallbackDenylist: [/^\/firebase-messaging-sw\.js$/],
           runtimeCaching: [
             {
               // Cache em primeiro plano para todas as imagens WebP servidas localmente

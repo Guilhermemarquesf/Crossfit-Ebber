@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { MotionConfig } from 'motion/react';
 import { AuthProvider } from './contexts/AuthContext';
+import { StreakProvider } from './contexts/StreakContext';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
 import { BoxStructureSection } from './components/BoxStructureSection';
@@ -31,42 +32,44 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <MotionConfig reducedMotion="user">
-        <div className="min-h-screen bg-[#080A0C] text-white">
-          {gmpQuotaExceeded && (
-            <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
-              <span>
-                Google Maps Platform quota reached. If you are the app owner,
-                visit{' '}
-                <a
-                  href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline font-semibold text-amber-950 hover:text-amber-800"
-                >
-                  maps developer site
-                </a>{' '}
-                for instructions to update your account.
-              </span>
-            </div>
-          )}
-          <Header />
-          <main>
-            <HeroSection />
-            <BoxStructureSection />
-            <WodCommunitySection />
-            <MethodologySection />
-            <TestimonialsSection />
-            <FaqScheduleSection />
-            <LocationContactSection />
-            <WhatsAppGreetingSuggestion />
-          </main>
-          <Footer />
-          <ScrollToTop />
-          <FloatingWhatsApp />
-          <OfflineIndicator />
-        </div>
-      </MotionConfig>
+      <StreakProvider>
+        <MotionConfig reducedMotion="user">
+          <div className="min-h-screen bg-[#080A0C] text-white">
+            {gmpQuotaExceeded && (
+              <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+                <span>
+                  Google Maps Platform quota reached. If you are the app owner,
+                  visit{' '}
+                  <a
+                    href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline font-semibold text-amber-950 hover:text-amber-800"
+                  >
+                    maps developer site
+                  </a>{' '}
+                  for instructions to update your account.
+                </span>
+              </div>
+            )}
+            <Header />
+            <main>
+              <HeroSection />
+              <BoxStructureSection />
+              <WodCommunitySection />
+              <MethodologySection />
+              <TestimonialsSection />
+              <FaqScheduleSection />
+              <LocationContactSection />
+              <WhatsAppGreetingSuggestion />
+            </main>
+            <Footer />
+            <ScrollToTop />
+            <FloatingWhatsApp />
+            <OfflineIndicator />
+          </div>
+        </MotionConfig>
+      </StreakProvider>
     </AuthProvider>
   );
 }

@@ -111,6 +111,26 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidReminder(data) {
+      return data.keys().hasAll([
+        'userId', 'userName', 'targetDate', 'trainingTime', 'fcmToken',
+        'enabled', 'wodReference', 'createdAt', 'updatedAt'
+      ])
+        && data.keys().hasOnly([
+          'userId', 'userName', 'targetDate', 'trainingTime', 'fcmToken',
+          'enabled', 'wodReference', 'createdAt', 'updatedAt'
+        ])
+        && data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 100
+        && data.targetDate is string && data.targetDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.trainingTime is string && data.trainingTime.size() >= 2 && data.trainingTime.size() <= 30
+        && data.fcmToken is string && data.fcmToken.size() <= 500
+        && data.enabled is bool
+        && data.wodReference is string && data.wodReference.size() <= 120
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     // Coleção de perfis de usuários
     match /users/{userId} {
       allow get: if isValidId(userId) && (isOwner(userId) || isCoach());
@@ -206,6 +226,29 @@ service cloud.firestore {
           'movement', 'weightKg', 'reps', 'recordedDate', 'notes', 'updatedAt'
         ]);
       allow delete: if isValidId(prId) && isOwner(existing().userId);
+    }
+
+    // Coleção privada de lembretes push (FCM) para o treino do dia seguinte
+    match /reminders/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isCoach());
+      allow list: if isCoach();
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidReminder(incoming())
+        && incoming().userId == userId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidReminder(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'userName', 'targetDate', 'trainingTime', 'fcmToken',
+          'enabled', 'wodReference', 'updatedAt'
+        ]);
+      allow delete: if isValidId(userId) && isOwner(userId);
     }
   }
 }

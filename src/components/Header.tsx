@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { LogIn, LogOut, Menu, X } from 'lucide-react';
+import { Flame, LogIn, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useStreak } from '../contexts/StreakContext';
 import { BUSINESS_INFO, buildWhatsAppUrl } from '../data/boxData';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -16,6 +17,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, userProfile, authBusy, authError, signInWithGoogle, logout, clearAuthError } =
     useAuth();
+  const { currentStreak, isLitToday } = useStreak();
 
   const displayName = userProfile?.name || user?.displayName || 'Atleta';
   const firstName = displayName.trim().split(/\s+/)[0] || 'Atleta';
@@ -51,6 +53,21 @@ export function Header() {
 
         {/* Zone 3: Google Auth + Primary CTA + Mobile Menu Trigger */}
         <div className="flex items-center gap-2.5 shrink-0">
+          {user && (
+            <a
+              href="#wod-ranking"
+              title={`Ofensiva de ${currentStreak} ${currentStreak === 1 ? 'dia seguido' : 'dias seguidos'}`}
+              aria-label={`Foguinho: ${currentStreak} ${currentStreak === 1 ? 'dia seguido' : 'dias seguidos'}. Ir para área do atleta`}
+              className="inline-flex items-center gap-1 rounded-md border border-[#FF7A00]/45 bg-[#1A130D] px-2 py-1.5 text-xs font-extrabold text-[#FFB347] tabular-nums transition-colors hover:border-[#FF8C1A] hover:bg-[#26190E]"
+            >
+              <Flame
+                className={`h-3.5 w-3.5 ${isLitToday ? 'fill-[#FF6B00] text-[#FFB347]' : ''}`}
+                aria-hidden="true"
+              />
+              <span>{currentStreak}</span>
+            </a>
+          )}
+
           {user ? (
             <div className="hidden sm:flex items-center gap-2 rounded-md border border-white/15 bg-[#12161B] py-1 pr-1.5 pl-2">
               {avatarUrl ? (
@@ -191,7 +208,7 @@ export function Header() {
                         {displayName}
                       </p>
                       <p className="text-[11px] uppercase tracking-wider text-[#29A8F5]">
-                        {userProfile?.role === 'coach' ? 'Coach' : 'Aluno'}
+                        {userProfile?.role === 'coach' ? 'Coach' : 'Aluno'} · 🔥 {currentStreak} {currentStreak === 1 ? 'dia' : 'dias'}
                       </p>
                     </div>
                   </div>

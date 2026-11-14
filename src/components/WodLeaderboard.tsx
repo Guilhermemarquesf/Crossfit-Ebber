@@ -12,6 +12,9 @@ import {
   where,
 } from 'firebase/firestore';
 import {
+  Bell,
+  BellOff,
+  BellRing,
   CheckCircle2,
   Clock,
   Dumbbell,
@@ -23,7 +26,18 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useStreak } from '../contexts/StreakContext';
 import { OperationType, db, handleFirestoreError } from '../services/firebase';
+import {
+  WorkoutReminderRecord,
+  cancelWorkoutReminder,
+  getTomorrowDateString,
+  loadWorkoutReminder,
+  requestPushReminderToken,
+  saveWorkoutReminder,
+  sendTestWorkoutNotification,
+  subscribeForegroundMessages,
+} from '../services/messaging';
 
 export type ScoreCategory = 'RX' | 'Scaled';
 export type ScoreType = 'Tempo' | 'Reps';
@@ -185,6 +199,7 @@ export function WodLeaderboard({
 }: WodLeaderboardProps) {
   const { user, userProfile, authReady, authBusy, signInWithGoogle } =
     useAuth();
+  const { markActiveDate } = useStreak();
 
   const isCoach = userProfile?.role === 'coach';
 
@@ -208,9 +223,64 @@ export function WodLeaderboard({
   const [scoreSaving, setScoreSaving] = useState(false);
   const [scoreFeedback, setScoreFeedback] = useState<string | null>(null);
 
+  // Estado do Lembrete Push (Firebase Cloud Messaging) para o dia seguinte
+  const [wantNextDayReminder, setWantNextDayReminder] = useState(false);
+  const [nextDayTrainingTime, setNextDayTrainingTime] = useState('19:00');
+  const [activeReminder, setActiveReminder] =
+    useState<WorkoutReminderRecord | null>(null);
+  const [reminderBusy, setReminderBusy] = useState(false);
+  const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
+  const [foregroundPushNotice, setForegroundPushNotice] = useState<{
+    title: string;
+    body: string;
+  } | null>(null);
+
+  const tomorrowDate = useMemo(
+    () => getTomorrowDateString(selectedDate),
+    [selectedDate]
+  );
+
   const defaultWodTitle = currentWod
     ? `${currentWod.title} (${currentWod.modality})`
     : `Treino do Dia ${formatDatePtBr(selectedDate)}`;
+
+  // Carrega lembrete salvo do aluno e escuta notificações push em primeiro plano (FCM)
+  useEffect(() => {
+    if (!authReady || !user) {
+      setActiveReminder(null);
+      setReminderFeedback(null);
+      return;
+    }
+
+    let mounted = true;
+    void loadWorkoutReminder(user.uid).then((saved) => {
+      if (!mounted || !saved) return;
+      setActiveReminder(saved);
+      if (saved.trainingTime) {
+        setNextDayTrainingTime(saved.trainingTime);
+      }
+      if (saved.enabled) {
+        setWantNextDayReminder(true);
+      }
+    });
+
+    let unsubFcm: (() => void) | undefined;
+    void subscribeForegroundMessages((payload) => {
+      const title =
+        payload.notification?.title || 'Crossfit Ebber · Lembrete de Treino';
+      const body =
+        payload.notification?.body ||
+        'Hora de se preparar para o treino de hoje no box!';
+      setForegroundPushNotice({ title, body });
+    }).then((unsub) => {
+      unsubFcm = unsub;
+    });
+
+    return () => {
+      mounted = false;
+      if (unsubFcm) unsubFcm();
+    };
+  }, [authReady, user]);
 
   // Listener autenticado em tempo real da coleção 'scores' filtrada pela data selecionada
   useEffect(() => {
@@ -429,7 +499,12 @@ export function WodLeaderboard({
           updatedAt: serverTimestamp(),
         });
       }
-      setScoreFeedback('Resultado atualizado com sucesso no placar do box!');
+      markActiveDate(selectedDate, 'workout');
+      setScoreFeedback('Resultado atualizado com sucesso no placar e foguinho reforçado!');
+
+      if (wantNextDayReminder) {
+        await handleActivateNextDayReminder(resolvedWodTitle);
+      }
     } catch (err) {
       try {
         handleFirestoreError(err, OperationType.WRITE, scorePath);
@@ -441,6 +516,63 @@ export function WodLeaderboard({
     } finally {
       setScoreSaving(false);
     }
+  };
+
+  const handleActivateNextDayReminder = async (wodRefOverride?: string) => {
+    if (!user) return;
+    setReminderBusy(true);
+    setReminderFeedback(null);
+
+    try {
+      const tokenResult = await requestPushReminderToken();
+      const athleteName =
+        userProfile?.name || user.displayName || 'Atleta Ebber';
+      const saved = await saveWorkoutReminder(user, {
+        userName: athleteName,
+        targetDate: tomorrowDate,
+        trainingTime: nextDayTrainingTime,
+        fcmToken: tokenResult.token,
+        wodReference: wodRefOverride || defaultWodTitle,
+      });
+      setActiveReminder(saved);
+
+      if (tokenResult.status === 'fcm-active') {
+        setReminderFeedback(
+          `Lembrete Push (FCM) agendado para amanhã (${formatDatePtBr(tomorrowDate)}) às ${nextDayTrainingTime}!`
+        );
+      } else {
+        setReminderFeedback(
+          `${tokenResult.message} Horário (${nextDayTrainingTime} em ${formatDatePtBr(tomorrowDate)}) salvo na sua conta.`
+        );
+      }
+    } finally {
+      setReminderBusy(false);
+    }
+  };
+
+  const handleCancelReminder = async () => {
+    if (!user) return;
+    setReminderBusy(true);
+    try {
+      const updated = await cancelWorkoutReminder(user);
+      setActiveReminder(updated);
+      setWantNextDayReminder(false);
+      setReminderFeedback('Lembrete de treino cancelado.');
+    } finally {
+      setReminderBusy(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    const sent = await sendTestWorkoutNotification(
+      nextDayTrainingTime,
+      formatDatePtBr(tomorrowDate)
+    );
+    setReminderFeedback(
+      sent
+        ? 'Notificação de teste disparada no seu dispositivo!'
+        : 'Conceda permissão de notificação acima primeiro para testar.'
+    );
   };
 
   const handleDeleteScore = async (scoreId: string) => {
@@ -789,6 +921,53 @@ export function WodLeaderboard({
               )}
             </div>
 
+            {/* Solicitação opcional de lembrete push (FCM) integrada ao envio do WOD */}
+            <div className="mt-3 rounded-md border border-white/10 bg-[#0F1318] p-3">
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <label
+                  htmlFor="score-reminder-checkbox"
+                  className="flex cursor-pointer items-center gap-2 text-xs font-medium text-[#E5E7EB]"
+                >
+                  <input
+                    id="score-reminder-checkbox"
+                    type="checkbox"
+                    checked={wantNextDayReminder}
+                    onChange={(e) => setWantNextDayReminder(e.target.checked)}
+                    className="h-4 w-4 rounded border-white/30 bg-[#080A0C] accent-[#149CEA]"
+                  />
+                  <Bell
+                    className="h-3.5 w-3.5 text-[#29A8F5]"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    Solicitar lembrete push (FCM) para o treino de amanhã (
+                    {formatDatePtBr(tomorrowDate)})
+                  </span>
+                </label>
+
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="score-reminder-time"
+                    className="text-[11px] font-medium text-[#9AA3AF]"
+                  >
+                    Horário:
+                  </label>
+                  <select
+                    id="score-reminder-time"
+                    value={nextDayTrainingTime}
+                    onChange={(e) => setNextDayTrainingTime(e.target.value)}
+                    className="rounded border border-white/15 bg-[#080A0C] px-2 py-1 text-xs font-semibold text-white tabular-nums focus:border-[#149CEA] focus:outline-none"
+                  >
+                    {BOX_SESSIONS.map((sess) => (
+                      <option key={sess} value={sess}>
+                        {sess.includes(':') ? `Turma ${sess}` : sess}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
             {scoreFeedback && (
               <p
                 role="status"
@@ -798,6 +977,121 @@ export function WodLeaderboard({
               </p>
             )}
           </form>
+
+          {/* Painel Dedicado de Lembrete Push via Firebase Cloud Messaging (FCM) */}
+          <div
+            aria-labelledby="fcm-reminder-heading"
+            className="mt-4 rounded-lg border border-[#149CEA]/30 bg-[#080A0C] p-4"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#149CEA]/40 bg-[#149CEA]/10 text-[#29A8F5]">
+                  {activeReminder?.enabled ? (
+                    <BellRing className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Bell className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </div>
+                <div>
+                  <h4
+                    id="fcm-reminder-heading"
+                    className="text-xs font-bold uppercase tracking-wider text-white"
+                  >
+                    Lembrete Push do Próximo Treino (FCM)
+                  </h4>
+                  <p className="mt-0.5 text-xs text-[#B4BCC6]">
+                    {activeReminder?.enabled ? (
+                      <span>
+                        Agendado para{' '}
+                        <strong className="text-[#29A8F5] tabular-nums">
+                          {formatDatePtBr(activeReminder.targetDate)} às{' '}
+                          {activeReminder.trainingTime}
+                        </strong>
+                        {activeReminder.fcmToken
+                          ? ' · Token Web Push FCM ativo'
+                          : ' · Preferência salva no perfil'}
+                      </span>
+                    ) : (
+                      <span>
+                        Receba uma notificação push para não perder o horário de
+                        amanhã ({formatDatePtBr(tomorrowDate)}).
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={reminderBusy}
+                  onClick={() => void handleActivateNextDayReminder()}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-[#0C7EC8] px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-[#149CEA] disabled:opacity-60"
+                >
+                  <BellRing className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>
+                    {reminderBusy
+                      ? 'Ativando...'
+                      : activeReminder?.enabled
+                        ? 'Atualizar Horário'
+                        : 'Ativar Lembrete Push'}
+                  </span>
+                </button>
+
+                {typeof Notification !== 'undefined' &&
+                  Notification.permission === 'granted' && (
+                    <button
+                      type="button"
+                      onClick={() => void handleTestNotification()}
+                      className="rounded-md border border-white/15 bg-[#0F1318] px-3 py-1.5 text-xs font-semibold text-[#D1D5DB] transition-colors hover:border-[#149CEA] hover:text-white"
+                    >
+                      Testar Aviso
+                    </button>
+                  )}
+
+                {activeReminder?.enabled && (
+                  <button
+                    type="button"
+                    disabled={reminderBusy}
+                    onClick={() => void handleCancelReminder()}
+                    aria-label="Cancelar lembrete push de amanhã"
+                    className="inline-flex items-center gap-1 rounded-md border border-white/15 px-2.5 py-1.5 text-xs font-semibold text-[#9AA3AF] transition-colors hover:border-red-400/50 hover:text-red-300"
+                  >
+                    <BellOff className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Cancelar</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {reminderFeedback && (
+              <p
+                role="status"
+                className="mt-2.5 text-xs font-medium text-[#29A8F5]"
+              >
+                {reminderFeedback}
+              </p>
+            )}
+
+            {foregroundPushNotice && (
+              <div
+                role="alert"
+                className="mt-2.5 flex items-center justify-between gap-3 rounded border border-[#149CEA]/40 bg-[#149CEA]/10 px-3 py-2 text-xs text-white"
+              >
+                <span>
+                  <strong>{foregroundPushNotice.title}:</strong>{' '}
+                  {foregroundPushNotice.body}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setForegroundPushNotice(null)}
+                  className="font-bold underline"
+                >
+                  Ok
+                </button>
+              </div>
+            )}
+          </div>
 
           {scoresError && (
             <p

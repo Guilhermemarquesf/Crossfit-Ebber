@@ -2,8 +2,6 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import {
   Firestore,
-  doc,
-  getDocFromServer,
   getFirestore,
   initializeFirestore,
 } from 'firebase/firestore';
@@ -18,7 +16,8 @@ const firebaseConfig = {
   measurementId: 'G-DY5EJ2LSTB',
 };
 
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+export const app =
+  getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
@@ -27,7 +26,7 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 function createFirestoreInstance(): Firestore {
   try {
     return initializeFirestore(app, {
-      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: true,
     });
   } catch {
     return getFirestore(app);
@@ -87,25 +86,3 @@ export function handleFirestoreError(
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
-
-export async function verifyFirestoreConnection(): Promise<boolean> {
-  try {
-    await getDocFromServer(doc(db, 'wods', '_healthcheck'));
-    return true;
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      (error.message.includes('the client is offline') ||
-        error.message.includes('unavailable'))
-    ) {
-      console.warn(
-        'Firestore indisponível no momento. Verifique sua conexão ou se o banco Firestore foi criado no projeto crossfitebber.'
-      );
-      return false;
-    }
-    // Erros como permission-denied indicam que o servidor respondeu normalmente
-    return true;
-  }
-}
-
-void verifyFirestoreConnection();

@@ -227,6 +227,33 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "WorkoutReminder": {
+      "title": "WorkoutReminder",
+      "description": "Preferência de notificação push (FCM) do aluno para o treino do dia seguinte.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "userName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "targetDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "trainingTime": { "type": "string", "minLength": 2, "maxLength": 30 },
+        "fcmToken": { "type": "string", "maxLength": 500 },
+        "enabled": { "type": "boolean" },
+        "wodReference": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "userName",
+        "targetDate",
+        "trainingTime",
+        "fcmToken",
+        "enabled",
+        "wodReference",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -245,6 +272,10 @@
     "/prs/{prId}": {
       "schema": { "$ref": "#/entities/PersonalRecord" },
       "description": "Recordes Pessoais (PRs) privados de carga máxima por aluno."
+    },
+    "/reminders/{userId}": {
+      "schema": { "$ref": "#/entities/WorkoutReminder" },
+      "description": "Inscrições FCM e horário do treino do dia seguinte por aluno."
     }
   }
 }
