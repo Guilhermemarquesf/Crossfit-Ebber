@@ -109,12 +109,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (err) {
-        try {
-          handleFirestoreError(err, OperationType.WRITE, userPath);
-        } catch {
-          setAuthError(
-            'Não foi possível sincronizar seu perfil no Firestore. Verifique as permissões do projeto.'
-          );
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const isOfflineErr =
+          errMsg.includes('offline') || errMsg.includes('unavailable');
+        if (!isOfflineErr) {
+          try {
+            handleFirestoreError(err, OperationType.WRITE, userPath);
+          } catch {
+            setAuthError(
+              'Não foi possível sincronizar seu perfil no Firestore. Verifique as permissões do projeto.'
+            );
+          }
         }
       }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   APIProvider,
   Map as GoogleMap,
@@ -141,6 +141,9 @@ export function DarkGoogleMap() {
   const [searchFallback, setSearchFallback] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
+  const handleResolved = useCallback(() => setIsReady(true), []);
+  const handleFallback = useCallback(() => setSearchFallback(true), []);
+
   useEffect(() => {
     const onQuotaExceeded = () => setQuotaExceeded(true);
     window.addEventListener('gmp-quota-exceeded', onQuotaExceeded);
@@ -203,8 +206,8 @@ export function DarkGoogleMap() {
           style={{ width: '100%', height: '100%' }}
         >
           <CrossfitEbberMapContent
-            onResolved={() => setIsReady(true)}
-            onFallback={() => setSearchFallback(true)}
+            onResolved={handleResolved}
+            onFallback={handleFallback}
           />
         </GoogleMap>
       </APIProvider>

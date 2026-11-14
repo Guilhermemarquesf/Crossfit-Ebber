@@ -4,6 +4,7 @@ import {
   Firestore,
   getFirestore,
   initializeFirestore,
+  setLogLevel,
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -24,6 +25,7 @@ export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 function createFirestoreInstance(): Firestore {
+  setLogLevel('silent');
   try {
     return initializeFirestore(app, {
       experimentalForceLongPolling: true,
