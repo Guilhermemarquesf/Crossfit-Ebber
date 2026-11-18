@@ -1,8 +1,10 @@
 import {
   ReactNode,
   createContext,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 import {
@@ -171,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     setAuthBusy(true);
     setAuthError(null);
     try {
@@ -199,9 +201,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setAuthBusy(false);
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     setAuthBusy(true);
     setAuthError(null);
     try {
@@ -211,21 +213,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setAuthBusy(false);
     }
-  };
+  }, []);
+
+  const clearAuthError = useCallback(() => setAuthError(null), []);
+
+  const contextValue = useMemo(
+    () => ({
+      user,
+      userProfile,
+      authReady,
+      authBusy,
+      authError,
+      signInWithGoogle,
+      logout,
+      clearAuthError,
+    }),
+    [
+      user,
+      userProfile,
+      authReady,
+      authBusy,
+      authError,
+      signInWithGoogle,
+      logout,
+      clearAuthError,
+    ]
+  );
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        userProfile,
-        authReady,
-        authBusy,
-        authError,
-        signInWithGoogle,
-        logout,
-        clearAuthError: () => setAuthError(null),
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

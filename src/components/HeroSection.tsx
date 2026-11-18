@@ -49,12 +49,12 @@ export function HeroSection() {
           {/* Left Copy Column */}
           <ScrollReveal className="flex flex-col justify-between lg:col-span-6 lg:py-2">
             <div>
-              {/* Official Logo Banner cleanly cropped */}
-              <div className="mb-6 inline-block overflow-hidden rounded-md border border-white/15 bg-[#12161B]">
+              {/* Official Logo Banner seamlessly blended */}
+              <div className="mb-6">
                 <ResilientImage
                   src={BUSINESS_INFO.assets.logoBanner}
                   alt="Logo oficial Crossfit Ebber Atividades Físicas"
-                  className="h-12 w-auto object-contain sm:h-14"
+                  className="h-12 w-auto object-contain mix-blend-screen sm:h-16"
                   fallbackTitle="Crossfit Ebber"
                   loading="eager"
                 />

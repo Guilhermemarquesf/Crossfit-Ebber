@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   collection,
   doc,
@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { OperationType, db, handleFirestoreError } from '../services/firebase';
-import { PersonalRecordsManager } from './PersonalRecordsManager';
+import { PersonalRecordTracker } from './PersonalRecordTracker';
 import { ScrollReveal } from './ScrollReveal';
 import { StreakCard } from './StreakCard';
 import { WodLeaderboard } from './WodLeaderboard';
@@ -72,6 +72,7 @@ export function WodCommunitySection() {
 
   // Estado do WOD do Dia
   const [recentWods, setRecentWods] = useState<WodDoc[]>([]);
+  const [selectedDateWod, setSelectedDateWod] = useState<WodDoc | null>(null);
   const [wodLoading, setWodLoading] = useState(true);
   const [wodError, setWodError] = useState<string | null>(null);
   const [wodRequiresAuth, setWodRequiresAuth] = useState(false);
@@ -86,9 +87,30 @@ export function WodCommunitySection() {
   const [wodNotes, setWodNotes] = useState('');
 
   const currentWod = useMemo(
-    () => recentWods.find((w) => w.date === selectedDate) ?? null,
-    [recentWods, selectedDate]
+    () =>
+      recentWods.find((w) => w.date === selectedDate) ??
+      (selectedDateWod?.date === selectedDate ? selectedDateWod : null),
+    [recentWods, selectedDateWod, selectedDate]
   );
+
+  const activeWodSummary = useMemo(
+    () =>
+      currentWod
+        ? {
+            id: currentWod.id,
+            date: currentWod.date,
+            title: currentWod.title,
+            modality: currentWod.modality,
+            workout: currentWod.workout,
+          }
+        : null,
+    [currentWod]
+  );
+
+  const selectedDateRef = useRef(selectedDate);
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
 
   const isCoach = userProfile?.role === 'coach';
 
@@ -110,7 +132,7 @@ export function WodCommunitySection() {
     setCoachFeedback(null);
   }, [currentWod, selectedDate]);
 
-  // Listener para WODs recentes com fallback automático para leitura direta por data
+  // Listener contínuo para os 14 WODs mais recentes
   useEffect(() => {
     if (!authReady) return;
 
@@ -173,16 +195,18 @@ export function WodCommunitySection() {
 
         // Fallback para getDoc por ID (funciona mesmo se allow list estiver restrito)
         try {
-          const singleSnap = await getDoc(doc(db, 'wods', selectedDate));
+          const singleSnap = await getDoc(
+            doc(db, 'wods', selectedDateRef.current)
+          );
           if (!active) return;
           if (singleSnap.exists()) {
             const oneWod = mapDocToWod(
               singleSnap.id,
               singleSnap.data() as Record<string, unknown>
             );
-            setRecentWods([oneWod]);
+            setSelectedDateWod(oneWod);
           } else {
-            setRecentWods([]);
+            setSelectedDateWod(null);
           }
           setWodError(null);
           setWodRequiresAuth(false);
@@ -217,7 +241,47 @@ export function WodCommunitySection() {
       window.clearTimeout(loadingTimeout);
       unsubscribe();
     };
-  }, [authReady, user, selectedDate]);
+  }, [authReady, user]);
+
+  // Lookup pontual se o usuário escolher uma data fora dos 14 WODs recentes
+  useEffect(() => {
+    if (!authReady || (wodRequiresAuth && !user)) return;
+    if (recentWods.some((w) => w.date === selectedDate)) {
+      setSelectedDateWod(null);
+      return;
+    }
+
+    let active = true;
+    void getDoc(doc(db, 'wods', selectedDate))
+      .then((snap) => {
+        if (!active) return;
+        if (snap.exists()) {
+          const d = snap.data() as Record<string, unknown>;
+          setSelectedDateWod({
+            id: snap.id,
+            date: String(d.date || snap.id),
+            title: String(d.title || 'WOD do Dia'),
+            modality: WOD_MODALITIES.includes(d.modality as WodModality)
+              ? (d.modality as WodModality)
+              : 'For Time',
+            warmup: String(d.warmup || ''),
+            workout: String(d.workout || ''),
+            coachNotes: String(d.coachNotes || ''),
+            authorUid: String(d.authorUid || ''),
+            authorName: String(d.authorName || 'Coach Ebber'),
+          });
+        } else {
+          setSelectedDateWod(null);
+        }
+      })
+      .catch(() => {
+        if (active) setSelectedDateWod(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authReady, wodRequiresAuth, user, selectedDate, recentWods]);
 
   // Salvar / Atualizar WOD (exclusivo Coach)
   const handleSaveWod = async (e: FormEvent) => {
@@ -708,17 +772,7 @@ export function WodCommunitySection() {
             <div className="lg:col-span-7">
               <WodLeaderboard
                 selectedDate={selectedDate}
-                currentWod={
-                  currentWod
-                    ? {
-                        id: currentWod.id,
-                        date: currentWod.date,
-                        title: currentWod.title,
-                        modality: currentWod.modality,
-                        workout: currentWod.workout,
-                      }
-                    : null
-                }
+                currentWod={activeWodSummary}
               />
             </div>
           </div>
@@ -732,7 +786,7 @@ export function WodCommunitySection() {
             aria-labelledby="tab-perfil-prs"
             className="mt-8"
           >
-            <PersonalRecordsManager />
+            <PersonalRecordTracker />
           </div>
         )}
       </div>

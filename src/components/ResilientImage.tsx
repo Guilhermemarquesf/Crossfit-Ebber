@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dumbbell } from 'lucide-react';
 
 interface ResilientImageProps {
@@ -25,6 +25,10 @@ export function ResilientImage({
   fetchPriority,
 }: ResilientImageProps) {
   const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
 
   const resolvedPriority =
     fetchPriority ?? (loading === 'eager' ? 'high' : 'low');

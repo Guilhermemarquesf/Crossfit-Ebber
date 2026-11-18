@@ -31,9 +31,9 @@ export default function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <StreakProvider>
-        <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion="user">
+      <AuthProvider>
+        <StreakProvider>
           <div className="min-h-screen bg-[#080A0C] text-white">
             {gmpQuotaExceeded && (
               <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
@@ -68,8 +68,8 @@ export default function App() {
             <FloatingWhatsApp />
             <OfflineIndicator />
           </div>
-        </MotionConfig>
-      </StreakProvider>
-    </AuthProvider>
+        </StreakProvider>
+      </AuthProvider>
+    </MotionConfig>
   );
 }

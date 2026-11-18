@@ -273,7 +273,11 @@ export function WodLeaderboard({
         'Hora de se preparar para o treino de hoje no box!';
       setForegroundPushNotice({ title, body });
     }).then((unsub) => {
-      unsubFcm = unsub;
+      if (!mounted) {
+        unsub();
+      } else {
+        unsubFcm = unsub;
+      }
     });
 
     return () => {
@@ -281,6 +285,13 @@ export function WodLeaderboard({
       if (unsubFcm) unsubFcm();
     };
   }, [authReady, user]);
+
+  // Limpa feedbacks e restaura filtros ao trocar a data selecionada
+  useEffect(() => {
+    setScoreFeedback(null);
+    setSessionFilter('Todas');
+    setCategoryFilter('Todos');
+  }, [selectedDate]);
 
   // Listener autenticado em tempo real da coleção 'scores' filtrada pela data selecionada
   useEffect(() => {
@@ -433,13 +444,16 @@ export function WodLeaderboard({
       const secs = String(parsed % 60).padStart(2, '0');
       formattedDisplay = `${mins}:${secs}`;
     } else {
-      const repsParsed = Number(rawResult.replace(/[^\d.]/g, ''));
+      const normalizedReps = rawResult.replace(',', '.').trim();
+      const repsParsed = /^\d+(\.\d+)?$/.test(normalizedReps)
+        ? Number(normalizedReps)
+        : Number.NaN;
       if (
         Number.isNaN(repsParsed) ||
         repsParsed <= 0 ||
         repsParsed > 100000
       ) {
-        setScoreFeedback('Informe uma quantidade válida de repetições.');
+        setScoreFeedback('Informe uma quantidade válida de repetições (ex: 185).');
         return;
       }
       numericValue = repsParsed;
@@ -1112,12 +1126,27 @@ export function WodLeaderboard({
             ) : sortedScores.length === 0 ? (
               <div className="rounded-lg border border-dashed border-white/15 bg-[#080A0C] p-6 text-center">
                 <p className="text-sm font-medium text-white">
-                  Nenhum resultado lançado neste filtro ainda.
+                  {scores.length > 0
+                    ? 'Nenhum resultado encontrado para o filtro selecionado.'
+                    : 'Nenhum resultado lançado neste dia ainda.'}
                 </p>
                 <p className="mt-1 text-xs text-[#9AA3AF]">
-                  Seja o primeiro atleta a registrar o treino de{' '}
-                  {formatDatePtBr(selectedDate)}!
+                  {scores.length > 0
+                    ? 'Altere a categoria ou a turma filtrada para visualizar os outros placares.'
+                    : `Seja o primeiro atleta a registrar o treino de ${formatDatePtBr(selectedDate)}!`}
                 </p>
+                {scores.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCategoryFilter('Todos');
+                      setSessionFilter('Todas');
+                    }}
+                    className="mt-3 rounded-md border border-[#149CEA]/40 bg-[#149CEA]/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-[#29A8F5] hover:bg-[#149CEA]/20"
+                  >
+                    Limpar filtros
+                  </button>
+                )}
               </div>
             ) : (
               <ul

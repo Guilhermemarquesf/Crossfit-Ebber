@@ -60,11 +60,11 @@ export default defineConfig(() => {
           navigateFallbackDenylist: [/^\/firebase-messaging-sw\.js$/],
           runtimeCaching: [
             {
-              // Cache em primeiro plano para todas as imagens WebP servidas localmente
+              // Cache rápido com revalidação em segundo plano para imagens WebP locais
               urlPattern: /\/assets\/ebber\/.*\.webp$/i,
-              handler: 'CacheFirst',
+              handler: 'StaleWhileRevalidate',
               options: {
-                cacheName: 'ebber-webp-images',
+                cacheName: 'ebber-webp-images-v2',
                 expiration: {
                   maxEntries: 30,
                   maxAgeSeconds: 60 * 60 * 24 * 30, // 30 dias
@@ -105,8 +105,7 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
-          type: 'module',
+          enabled: false,
         },
       }),
     ],

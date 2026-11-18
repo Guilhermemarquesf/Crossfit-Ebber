@@ -19,8 +19,9 @@ export const BUSINESS_INFO = {
   mapsUrl:
     'https://www.google.com/maps/search/?api=1&query=Rua+Refinaria+Uniao+124+Petrolandia+Contagem+MG',
   assets: {
-    logoBanner: '/assets/ebber/logo-banner.webp',
+    logoBanner: '/assets/ebber/logo-ebber-oficial.webp',
     logoCircle: '/assets/ebber/logo-circle.webp',
+    logoShare: '/assets/aistudio/WhatsApp_Image_2026-11-17_at_22.02.39_d4fcd800.jpeg',
     boxPhoto: '/assets/ebber/box-espaco.webp',
     boxComunidade: '/assets/ebber/box-comunidade.webp',
     boxTurmaPneu: '/assets/ebber/box-turma-pneu.webp',
@@ -28,9 +29,9 @@ export const BUSINESS_INFO = {
     boxEquipamentos: '/assets/ebber/box-equipamentos.webp',
     boxArgolasCorda: '/assets/ebber/box-argolas-corda.webp',
     boxSegunda: '/assets/ebber/box-segunda.webp',
-    posterMente: '/assets/ebber/poster-mente.webp',
-    posterInvista: '/assets/ebber/poster-invista.webp',
-    posterSaude: '/assets/ebber/poster-saude.webp',
+    posterMente: '/assets/ebber/poster-mente-v2.webp',
+    posterInvista: '/assets/ebber/poster-invista-v2.webp',
+    posterSaude: '/assets/ebber/poster-saude-v2.webp',
     promoVideo:
       '/assets/aistudio/WhatsApp_Video_2026-11-13_at_09.31.13_43b81fe2.mp4',
   },

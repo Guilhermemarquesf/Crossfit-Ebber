@@ -85,6 +85,11 @@ export function handleFirestoreError(
     operationType,
     path,
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  if (
+    !errInfo.error.includes('offline') &&
+    !errInfo.error.includes('unavailable')
+  ) {
+    console.warn('Firestore notice:', JSON.stringify(errInfo));
+  }
   throw new Error(JSON.stringify(errInfo));
 }

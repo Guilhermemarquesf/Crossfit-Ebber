@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Flame, LogIn, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStreak } from '../contexts/StreakContext';
@@ -15,6 +15,7 @@ const NAV_LINKS = [
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const { user, userProfile, authBusy, authError, signInWithGoogle, logout, clearAuthError } =
     useAuth();
   const { currentStreak, isLitToday } = useStreak();
@@ -23,16 +24,25 @@ export function Header() {
   const firstName = displayName.trim().split(/\s+/)[0] || 'Atleta';
   const avatarUrl = userProfile?.photoURL || user?.photoURL || '';
 
+  useEffect(() => {
+    setAvatarError(false);
+  }, [avatarUrl]);
+
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#080A0C]/95 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-[1280px] items-center justify-between gap-4 px-4 sm:px-6 lg:h-16 lg:gap-6 lg:px-8">
-        {/* Zone 1: Single-element Brand Wordmark */}
+        {/* Zone 1: Official Brand Logo */}
         <a
           id="brand-wordmark"
           href="#inicio"
-          className="font-display text-xl font-extrabold uppercase tracking-tight text-white whitespace-nowrap shrink-0 xl:text-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#149CEA]"
+          aria-label="Crossfit Ebber - Atividades Físicas - Ir para o início"
+          className="inline-flex shrink-0 items-center py-1 transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#149CEA]"
         >
-          CROSSFIT <span className="text-[#149CEA]">EBBER</span>
+          <img
+            src={BUSINESS_INFO.assets.logoBanner}
+            alt="Crossfit Ebber - Atividades Físicas"
+            className="h-8 w-auto object-contain mix-blend-screen sm:h-9"
+          />
         </a>
 
         {/* Zone 2: 5 concise single-line navigation links */}
@@ -70,11 +80,12 @@ export function Header() {
 
           {user ? (
             <div className="hidden sm:flex items-center gap-2 rounded-md border border-white/15 bg-[#12161B] py-1 pr-1.5 pl-2">
-              {avatarUrl ? (
+              {avatarUrl && !avatarError ? (
                 <img
                   src={avatarUrl}
                   alt={`Foto de ${displayName}`}
                   referrerPolicy="no-referrer"
+                  onError={() => setAvatarError(true)}
                   className="h-6 w-6 rounded-full object-cover"
                 />
               ) : (
@@ -191,11 +202,12 @@ export function Header() {
               {user ? (
                 <div className="flex items-center justify-between gap-3 rounded-md border border-white/15 bg-[#12161B] px-3 py-2.5">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    {avatarUrl ? (
+                    {avatarUrl && !avatarError ? (
                       <img
                         src={avatarUrl}
                         alt={`Foto de ${displayName}`}
                         referrerPolicy="no-referrer"
+                        onError={() => setAvatarError(true)}
                         className="h-8 w-8 rounded-full object-cover"
                       />
                     ) : (

@@ -281,15 +281,20 @@ export function StreakProvider({ children }: { children: ReactNode }) {
     };
   }, [visitDates, scoreDates, prDates, today]);
 
+  const clearJustLitMessage = useCallback(() => setJustLitMessage(null), []);
+
+  const contextValue = useMemo(
+    () => ({
+      ...computed,
+      justLitMessage,
+      markActiveDate,
+      clearJustLitMessage,
+    }),
+    [computed, justLitMessage, markActiveDate, clearJustLitMessage]
+  );
+
   return (
-    <StreakContext.Provider
-      value={{
-        ...computed,
-        justLitMessage,
-        markActiveDate,
-        clearJustLitMessage: () => setJustLitMessage(null),
-      }}
-    >
+    <StreakContext.Provider value={contextValue}>
       {children}
     </StreakContext.Provider>
   );

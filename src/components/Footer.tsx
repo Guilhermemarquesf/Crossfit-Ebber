@@ -24,11 +24,14 @@ export function Footer() {
         <div className="grid grid-cols-1 gap-8 border-b border-white/10 pb-10 md:grid-cols-12">
           {/* Brand & Local SEO Context */}
           <div className="md:col-span-5">
-            <a href="#inicio" className="inline-block">
+            <a
+              href="#inicio"
+              className="inline-block transition-opacity hover:opacity-90"
+            >
               <ResilientImage
                 src={BUSINESS_INFO.assets.logoBanner}
                 alt="Crossfit Ebber Atividades Físicas - CrossFit no Petrolândia e Betim"
-                className="h-11 w-auto rounded border border-white/15 object-contain"
+                className="h-11 w-auto object-contain mix-blend-screen sm:h-12"
                 fallbackTitle="CROSSFIT EBBER"
               />
             </a>

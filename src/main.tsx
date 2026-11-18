@@ -28,10 +28,15 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>
 );
 
-// Registro não-bloqueante do Service Worker PWA após o evento 'load' (impede impacto no LCP/FCP)
-registerSW({
-  immediate: false,
-  onOfflineReady() {
-    // Versão offline em cache pronta para abertura rápida como app instalado
-  },
-});
+// Registro não-bloqueante do Service Worker PWA em produção (impede impacto no LCP/FCP e erros em dev sem HMR)
+if (import.meta.env.PROD) {
+  registerSW({
+    immediate: false,
+    onOfflineReady() {
+      // Versão offline em cache pronta para abertura rápida como app instalado
+    },
+    onRegisterError() {
+      // Silencia falha caso o ambiente bloqueie Service Workers em iframe
+    },
+  });
+}
